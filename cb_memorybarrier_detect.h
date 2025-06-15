@@ -1,9 +1,12 @@
 #ifndef CB_MEMORYBARRIER_DETECT_H
 #define CB_MEMORYBARRIER_DETECT_H
 
+// Memory barrier implementations
+
 #ifndef CB_USE_MEMORY_BARRIERS
 #define CB_USE_MEMORY_BARRIERS 1  // Enable by default
 #endif
+
 /**
     @brief Memory barrier control for lock-free operation
 
@@ -69,85 +72,179 @@
 */
 
 #if CB_USE_MEMORY_BARRIERS
-#ifndef CB_MEMORY_BARRIER
-#if defined(__GNUC__) || defined(__clang__)
-/* GCC, Clang, and compatible compilers (Linux, *BSD, macOS) */
-#define CB_MEMORY_BARRIER() __asm__ __volatile__("" ::: "memory")
+	#ifndef CB_MEMORY_BARRIER
+		/* Apple Silicon (macOS on ARM64) */
+		#if defined(__APPLE__) && defined(__aarch64__)
+			#define CB_MEMORY_BARRIER() __asm__ __volatile__("dmb ish" ::: "memory")
+		
+		/* ARM64 (aarch64) */
+		#elif defined(__aarch64__) && (defined(__GNUC__) || defined(__clang__))
+			#define CB_MEMORY_BARRIER() __asm__ __volatile__("dmb ish" ::: "memory")
+		
+		/* ARM Cortex-M (All versions) */
+		#elif (defined(__ARM_ARCH_6M__) || defined(__ARM_ARCH_7M__) || \
+			   defined(__ARM_ARCH_7EM__) || defined(__ARM_ARCH_8M_MAIN__)) && \
+			  (defined(__GNUC__) || defined(__clang__))
+			#define CB_MEMORY_BARRIER() __asm__ __volatile__("dmb" ::: "memory")
+		
+		/* Infineon AURIX (TriCore) */
+		#elif defined(__HIGHTEC__) && (defined(__tricore__) || defined(__TC__))
+			#define CB_MEMORY_BARRIER() __asm__ volatile("dsync")
+		
+		/* Altera/Intel Nios II */
+		#elif defined(__NIOS2__) || defined(__NIOS2)
+			#if defined(__GNUC__) || defined(__clang__)
+				#define CB_MEMORY_BARRIER() __asm__ __volatile__("sync" ::: "memory")
+			#endif
+		
+		/* Xtensa (ESP32) */
+		#elif defined(__xtensa__) || defined(ESP_PLATFORM)
+			#define CB_MEMORY_BARRIER() __asm__ __volatile__("memw" ::: "memory")
+		
+		/* Andes NDS32 */
+		#elif defined(__nds32__)
+			#define CB_MEMORY_BARRIER() __asm__ __volatile__("membar" ::: "memory")
+		
+		/* RISC-V */
+		#elif defined(__riscv)
+			#if (__riscv_xlen == 32)
+				#define CB_MEMORY_BARRIER() __asm__ volatile("fence iorw, iorw" ::: "memory")
+			#else
+				#define CB_MEMORY_BARRIER() __asm__ volatile("fence rw, rw" ::: "memory")
+			#endif
+			
+		/* RTEMS RTOS */
+		#elif defined(__rtems__)
+			#if defined(__GNUC__) || defined(__clang__)
+				#define CB_MEMORY_BARRIER() __asm__ __volatile__("" ::: "memory")
+			#elif __STDC_VERSION__ >= 201112L && !defined(__STDC_NO_ATOMICS__)
+				#include <stdatomic.h>
+				#define CB_MEMORY_BARRIER() atomic_thread_fence(memory_order_seq_cst)
+			#endif
+		
+		/* Android NDK */
+		#elif defined(__ANDROID__)
+			#if defined(__aarch64__)
+				#define CB_MEMORY_BARRIER() __asm__ __volatile__("dmb ish" ::: "memory")
+			#elif defined(__arm__)
+				#define CB_MEMORY_BARRIER() __asm__ __volatile__("dmb" ::: "memory")
+			#elif defined(__GNUC__) || defined(__clang__)
+				#define CB_MEMORY_BARRIER() __asm__ __volatile__("" ::: "memory")
+			#endif
+			
+		/* IAR for RISC-V */
+		#elif defined(__IAR_SYSTEMS_ICC__) && defined(__riscv)
+			#include <intrinsics.h>
+			#define CB_MEMORY_BARRIER() __iar_builtin_MB()
+		
+		/* TI Compiler for C28x DSPs */
+		#elif defined(__TI_COMPILER_VERSION__) && (defined(_TMS320C28X) || defined(__TMS320C28XX__))
+			#define CB_MEMORY_BARRIER() asm(" CSYNC")
+		
+		/* embOS (SEGGER RTOS) */
+		#elif defined(USE_EMBOS) || defined(OS_EMBOS_H) || defined(OS_Global_H) || defined(OS_MAIN_H)
+			#include <RTOS.h>
+			#define CB_MEMORY_BARRIER() OS_MemoryBarrier()
+		
+		/* Mbed OS */
+		#elif defined(MBED_TOOLCHAIN_H) || defined(MBED_OS_H)
+			#include <mbed_toolchain.h>
+			#define CB_MEMORY_BARRIER() MBED_BARRIER()
+		
+		/* QNX RTOS */
+		#elif defined(__QNX__)
+			#if defined(__GNUC__)
+				#define CB_MEMORY_BARRIER() __asm__ __volatile__("" ::: "memory")
+			#else
+				#include <sys/mfence.h>
+				#define CB_MEMORY_BARRIER() __mfence()
+			#endif
+		
+		/* MIPS */
+		#elif defined(__mips__) && (defined(__GNUC__) || defined(__clang__))
+			#define CB_MEMORY_BARRIER() __asm__ __volatile__("sync" ::: "memory")
+		
+		/* PowerPC */
+		#elif (defined(__powerpc__) || defined(__ppc__) || defined(__PPC__)) && (defined(__GNUC__) || defined(__clang__))
+			#define CB_MEMORY_BARRIER() __asm__ __volatile__("sync" ::: "memory")
+		
+		/* Azure RTOS (ThreadX) */
+		#elif defined(__THREADX__) || defined(TX_INCLUDE_H)
+			/* Use architecture-specific fallbacks */
+			#if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__) || defined(__ARM_ARCH_8M_MAIN__)
+				#define CB_MEMORY_BARRIER() __asm__ volatile ("dmb" ::: "memory")
+			#elif defined(__riscv)
+				#define CB_MEMORY_BARRIER() __asm__ volatile ("fence" ::: "memory")
+			#elif defined(__GNUC__) || defined(__clang__)
+				#define CB_MEMORY_BARRIER() __asm__ __volatile__("" ::: "memory")
+			#else
+				#define CB_MEMORY_BARRIER() ((void)0)
+			#endif
+		
+		/* uC/OS-II & uC/OS-III - SIMPLIFIED */
+		#elif defined(OS_CFG_H) || defined(OS_CPU_H)
+			/* Generic implementation for all architectures */
+			#if defined(__GNUC__) || defined(__clang__)
+				#if defined(__arm__)
+					#define CB_MEMORY_BARRIER() __asm__ volatile ("dmb" ::: "memory")
+				#elif defined(__riscv)
+					#define CB_MEMORY_BARRIER() __asm__ volatile ("fence" ::: "memory")
+				#elif defined(__i386__) || defined(__x86_64__)
+					#define CB_MEMORY_BARRIER() __asm__ __volatile__("mfence" ::: "memory")
+				#else
+					#define CB_MEMORY_BARRIER() __asm__ __volatile__("" ::: "memory")
+				#endif
+			#else
+				#define CB_MEMORY_BARRIER() ((void)0)
+			#endif
 
-#elif defined(_MSC_VER)
-/* Microsoft Visual C++ */
-#include <intrin.h>
-#define CB_MEMORY_BARRIER() _ReadWriteBarrier()
+		/* ---------- COMPILER BARRIERS ---------- */
+		#elif defined(__GNUC__) || defined(__clang__)
+			#define CB_MEMORY_BARRIER() __asm__ __volatile__("" ::: "memory")
 
-#elif defined(__ICCARM__) || defined(__IAR_SYSTEMS_ICC__)
-/* IAR Embedded Workbench for ARM */
-#include <intrinsics.h>
-#define CB_MEMORY_BARRIER() __memory_barrier()
+		#elif defined(_MSC_VER)
+			#include <intrin.h>
+			#pragma intrinsic(_ReadWriteBarrier)
+			#define CB_MEMORY_BARRIER() _ReadWriteBarrier()
 
-#elif defined(__CC_ARM) || defined(__ARMCC_VERSION)
-/* Keil MDK-ARM */
-#if __ARMCC_VERSION >= 6010050
-/* ARM Compiler 6 (armclang) */
-#define CB_MEMORY_BARRIER() __asm volatile("dmb ish" ::: "memory")
-#else
-/* ARM Compiler 5 */
-#define CB_MEMORY_BARRIER() __schedule_barrier()
-#endif
+		#elif defined(__ICCARM__) || defined(__IAR_SYSTEMS_ICC__)
+			#include <intrinsics.h>
+			#define CB_MEMORY_BARRIER() __memory_barrier()
 
-#elif defined(__TI_COMPILER_VERSION__)
-/* Texas Instruments Code Composer Studio */
-#define CB_MEMORY_BARRIER() asm("")
+		#elif defined(__CC_ARM) || defined(__ARMCC_VERSION)
+			#if __ARMCC_VERSION >= 6010050
+				#define CB_MEMORY_BARRIER() __asm volatile("dmb ish" ::: "memory")
+			#else
+				#define CB_MEMORY_BARRIER() __schedule_barrier()
+			#endif
 
-#elif defined(__ghs__)
-/* Green Hills Compiler */
-#define CB_MEMORY_BARRIER() __memory_changed()
+		/* ---------- RTOS SPECIFIC ---------- */
+		#elif defined(FREERTOS_H) || defined(INC_FREERTOS_H)
+			#ifdef portMEMORY_BARRIER
+				#define CB_MEMORY_BARRIER() portMEMORY_BARRIER()
+			#else
+				#define CB_MEMORY_BARRIER() vPortMemoryBarrier()
+			#endif
 
-#elif defined(__TASKING__)
-/* TASKING VX-toolset */
-#define CB_MEMORY_BARRIER() __memory_barrier()
+		#elif defined(CONFIG_ZEPHYR)
+			#include <sys/atomic.h>
+			#define CB_MEMORY_BARRIER() atomic_thread_fence(memory_order_seq_cst)
 
-#elif defined(FREERTOS_H) || defined(INC_FREERTOS_H)
-/* FreeRTOS-specific barrier */
-#ifdef portMEMORY_BARRIER
-#define CB_MEMORY_BARRIER() portMEMORY_BARRIER()
-#else
-#define CB_MEMORY_BARRIER() vPortMemoryBarrier()
-#endif
+		#elif defined(__VXWORKS__)
+			#include <vxAtomicLib.h>
+			#define CB_MEMORY_BARRIER() vxAtomicMemBarrier()
 
-#elif defined(CONFIG_ZEPHYR)
-/* Zephyr RTOS */
-#include <sys/atomic.h>
-#define CB_MEMORY_BARRIER() atomic_thread_fence(memory_order_seq_cst)
-
-#elif defined(__VXWORKS__)
-/* VxWorks RTOS */
-#include <vxAtomicLib.h>
-#define CB_MEMORY_BARRIER() vxAtomicMemBarrier()
-
-#elif defined(__XC32) || defined(__XC16) || defined(__XC8)
-/* Microchip XC Compilers */
-#define CB_MEMORY_BARRIER() __builtin_memory_barrier()
-
-#elif defined(__GNUC__) && (__riscv)
-/* RISC-V GCC */
-#define CB_MEMORY_BARRIER() __asm__ volatile("fence" ::: "memory")
-
-#elif defined(__llvm__) && (__MIPS__)
-/* MIPS LLVM */
-#define CB_MEMORY_BARRIER() __sync_synchronize()
-
-#else
-/* Generic fallback - try to use C11 atomics */
-#if __STDC_VERSION__ >= 201112L && !defined(__STDC_NO_ATOMICS__)
-#include <stdatomic.h>
-#define CB_MEMORY_BARRIER() atomic_thread_fence(memory_order_seq_cst)
-#else
-/* Last resort - empty implementation with warning */
-#warning "No memory barrier implementation for this platform. Using empty barrier."
-#define CB_MEMORY_BARRIER() ((void)0)
-#endif
-#endif
-#endif
+		/* ---------- GENERIC FALLBACK ---------- */
+		#else
+			#if __STDC_VERSION__ >= 201112L && !defined(__STDC_NO_ATOMICS__)
+				#include <stdatomic.h>
+				#define CB_MEMORY_BARRIER() atomic_thread_fence(memory_order_seq_cst)
+			#else
+				#warning "Using empty memory barrier"
+				#define CB_MEMORY_BARRIER() ((void)0)
+			#endif
+		#endif
+	#endif
 #endif
 
 #endif /* CB_MEMORYBARRIER_DETECT_H */
