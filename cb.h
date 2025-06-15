@@ -21,6 +21,11 @@
        - `cb_remove()`     : Retrieve item (non-blocking, returns false if empty)
        - `cb_freeSpace()`  : Get number of free slots
        - `cb_dataSize()`   : Get number of occupied slots
+       - `cb_sanity_check()`: Validate buffer integrity
+       - `cb_peek()`       : Read item without removal
+       - `cb_insert_bulk()`: Insert multiple items
+       - `cb_remove_bulk()`: Remove multiple items
+       - `cb_set_overwrite()`: Enable/disable overwrite mode
 
     @note This implementation is suitable for 1-producer, 1-consumer scenarios.
          Index types and memory fencing are adapted per platform for correctness.
@@ -31,7 +36,7 @@
          use appropriate memory ordering intrinsics _ReadWriteBarrier(), __memory_changed() etc.
 
     @date 2023-04-01
-    @version 1.0
+    @version 1.1
     @author Eray Ozturk | erayozturk1@gmail.com
     @url github.com/diffstorm
     @license MIT License
@@ -72,6 +77,7 @@ typedef struct
     CbIndex size;
     volatile CbAtomicIndex in;
     volatile CbAtomicIndex out;
+    volatile CbAtomicIndex overwrite;  // Overwrite mode flag
 } cb;
 
 // Initialization
@@ -80,9 +86,19 @@ void cb_init(cb *const cb_ptr, CbItem bufferStorage[], CbIndex bufferLength);
 // State
 CbIndex cb_freeSpace(cb *const cb_ptr);
 CbIndex cb_dataSize(cb *const cb_ptr);
+bool cb_sanity_check(const cb *cb_ptr);
 
 // Operations
 bool cb_insert(cb *const cb_ptr, CbItem const item);
 bool cb_remove(cb *const cb_ptr, CbItem *itemOut);
+bool cb_peek(const cb *cb_ptr, size_t offset, CbItem *itemOut);
+
+// Bulk operations
+size_t cb_insert_bulk(cb *cb_ptr, const CbItem *items, size_t count);
+size_t cb_remove_bulk(cb *cb_ptr, CbItem *items, size_t count);
+
+// Overwrite control
+void cb_set_overwrite(cb *cb_ptr, bool enable);
+bool cb_get_overwrite(const cb *cb_ptr);
 
 #endif /* CB_H */

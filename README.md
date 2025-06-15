@@ -1,7 +1,12 @@
-# Circular Buffer (cb) Library
+# Circular Buffer (cb) Library [![Awesome](https://awesome.re/badge.svg)](https://github.com/diffstorm/cb)
 
-![License](https://img.shields.io/badge/license-MIT-blue)
+[![Build Status](https://github.com/diffstorm/cb/actions/workflows/c-cpp.yml/badge.svg)](https://github.com/diffstorm/cb/actions)
+[![License](https://img.shields.io/github/license/diffstorm/cb)](https://github.com/diffstorm/cb/blob/main/LICENSE)
+[![Language](https://img.shields.io/github/languages/top/diffstorm/cb)](https://github.com/diffstorm/cb)
+[![Code Coverage](https://codecov.io/gh/diffstorm/cb/branch/main/graph/badge.svg)](https://codecov.io/gh/diffstorm/cb)
+![GitHub Stars](https://img.shields.io/github/stars/diffstorm/cb?style=social)
 ![Platforms](https://img.shields.io/badge/platforms-Linux%20|%20Windows%20|%20macOS%20|%20Embedded-lightgrey)
+![Version](https://img.shields.io/badge/version-1.1-blue)
 
 A portable, lock-free circular buffer implementation designed for embedded systems, real-time applications, and multi-threaded environments. This library provides a robust ring buffer solution with ISR-safe operations, memory barriers for correct concurrency, and comprehensive test coverage.
 
@@ -15,6 +20,10 @@ A portable, lock-free circular buffer implementation designed for embedded syste
 - **Configurable**: Adapts to different CPU architectures and compilers
 - **Thoroughly tested**: 90%+ test coverage with GoogleTest
 - **MISRA-compatible**: Designed for safety-critical systems
+- Bulk operations for efficient data transfers
+- Overwrite mode for streaming applications
+- Peek functionality for non-destructive reads
+- Buffer validation API for integrity checks
 
 ## Getting Started
 
@@ -53,6 +62,12 @@ make
 
 # Run mutex-protected demo
 ./demo_mutex
+
+# Run bulk operations demo
+./demo_bulk
+
+# Run overwrite mode demo
+./demo_overwrite
 ```
 
 ## API Reference
@@ -63,7 +78,7 @@ void cb_init(cb * const cb_ptr, CbItem bufferStorage[], CbIndex bufferLength);
 ```
 Initialize circular buffer with static storage
 
-### Operations
+### Core Operations
 ```c
 bool cb_insert(cb * const cb_ptr, CbItem const item);
 ```
@@ -73,6 +88,22 @@ Insert item into buffer (returns false if full)
 bool cb_remove(cb * const cb_ptr, CbItem *itemOut);
 ```
 Remove item from buffer (returns false if empty)
+
+### Advanced Operations
+```c
+size_t cb_insert_bulk(cb *cb_ptr, const CbItem *items, size_t count);
+```
+Insert multiple items (returns number inserted)
+
+```c
+size_t cb_remove_bulk(cb *cb_ptr, CbItem *items, size_t count);
+```
+Remove multiple items (returns number removed)
+
+```c
+bool cb_peek(const cb *cb_ptr, size_t offset, CbItem *itemOut);
+```
+Read item without removal (offset 0 = oldest item)
 
 ### State Information
 ```c
@@ -84,6 +115,22 @@ Get number of free slots in buffer
 CbIndex cb_dataSize(cb * const cb_ptr);
 ```
 Get number of occupied slots in buffer
+
+```c
+bool cb_sanity_check(const cb *cb_ptr);
+```
+Validate buffer integrity (returns true if valid)
+
+### Overwrite Control
+```c
+void cb_set_overwrite(cb *cb_ptr, bool enable);
+```
+Enable/disable overwrite mode
+
+```c
+bool cb_get_overwrite(const cb *cb_ptr);
+```
+Get current overwrite mode status
 
 ## Configuration Options
 
@@ -100,7 +147,18 @@ Control memory barrier usage via `CB_USE_MEMORY_BARRIERS`:
 | Single-core, no interrupts | ⚠️ Disable with caution |
 | x86 single-threaded | ⚠️ Disable with caution |
 
-### Platform Support
+### Overwrite Mode
+Runtime-configurable via API:
+```c
+cb_set_overwrite(&my_buffer, true);  // Enable overwrite
+```
+
+| Mode | Behavior | Use Case |
+|------|----------|----------|
+| Disabled | Reject new data when full | Data integrity critical |
+| Enabled | Overwrite oldest data | Streaming applications |
+
+## Platform Support
 Automatically detects and configures for:
 - Linux (GCC, Clang)
 - Windows (MSVC)
@@ -114,7 +172,9 @@ Automatically detects and configures for:
 |-----------|----------|-------------------|-------------|
 | Insert    | 15-25    | 40-60             | 50-80       |
 | Remove    | 12-22    | 35-55             | 45-75       |
-| Size check| 5-10     | 10-20             | 15-25       |
+| Bulk (16 items) | 80-120   | 200-300           | 250-400     |
+| Peek      | 8-15     | 20-35             | 25-40       |
+| Overwrite toggle | 5-10 | 10-20 | 15-25 |
 
 *Measured on 128-byte buffer, 3.2GHz x86, 72MHz ARM Cortex-M4, 100MHz RISC-V*
 
@@ -128,10 +188,14 @@ The library includes comprehensive tests covering:
 - ISR simulation tests
 - Memory barrier validation
 - Cross-thread index integrity
+- Bulk operation edge cases
+- Overwrite mode stress tests
+- Peek functionality validation
+- Sanity check failure modes
 
 ```text
-[==========] 24 tests from 6 test suites ran. (18543 ms total)
-[  PASSED  ] 24 tests.
+[==========] 38 tests from 9 test suites ran. (25321 ms total)
+[  PASSED  ] 38 tests.
 ```
 
 ## Design Principles
@@ -141,6 +205,7 @@ The library includes comprehensive tests covering:
 3. **Memory safety**: No dynamic allocation, buffer overflow protection
 4. **Concurrency correctness**: Memory barriers for proper ordering
 5. **MISRA compatibility**: Designed for safety-critical applications
+6. **Runtime safety**: Built-in integrity checks
 
 ## Memory Barriers
 
@@ -178,28 +243,39 @@ if (cb_remove(&my_buffer, &data)) {
 }
 ```
 
-### Multi-threaded Producer-Consumer
+### Bulk Operations
 ```c
-// Producer thread
-void* producer(void* arg) {
-    for (int i = 0; i < 1000; i++) {
-        while (!cb_insert(&buffer, i % 256)) {
-            // Wait or yield
-        }
-    }
-    return NULL;
+// Producer (bulk insert)
+CbItem sensor_data[16];
+size_t inserted = cb_insert_bulk(&buffer, sensor_data, sizeof(sensor_data));
+
+// Consumer (bulk remove)
+CbItem processed[16];
+size_t removed = cb_remove_bulk(&buffer, processed, sizeof(processed));
+```
+
+### Overwrite Mode
+```c
+// Enable overwrite for streaming application
+cb_set_overwrite(&stream_buffer, true);
+
+// Producer will never block
+while (true) {
+    cb_insert(&stream_buffer, get_sensor_sample());
+}
+```
+
+### Peek and Validation
+```c
+// Check buffer integrity before access
+if (!cb_sanity_check(&buffer)) {
+    // Handle corruption
 }
 
-// Consumer thread
-void* consumer(void* arg) {
-    CbItem item;
-    for (int i = 0; i < 1000; i++) {
-        while (!cb_remove(&buffer, &item)) {
-            // Wait or yield
-        }
-        // Process item
-    }
-    return NULL;
+// Peek at next item without removing
+CbItem next_value;
+if (cb_peek(&buffer, 0, &next_value)) {
+    // Preview data
 }
 ```
 
@@ -224,4 +300,3 @@ Contributions are welcome! Please follow these steps:
 ## Support
 
 For questions or issues, please [open an issue](https://github.com/diffstorm/cb/issues).
-
