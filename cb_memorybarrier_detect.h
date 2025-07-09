@@ -245,6 +245,11 @@
 			#endif
 		#endif
 	#endif
+#else
+	/* Memory barriers disabled - define as no-op */
+	#ifndef CB_MEMORY_BARRIER
+		#define CB_MEMORY_BARRIER() ((void)0)
+	#endif
 #endif
 
 #endif /* CB_MEMORYBARRIER_DETECT_H */

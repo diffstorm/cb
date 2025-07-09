@@ -51,4 +51,30 @@ Module.symvers
 Mkfile.old
 dkms.conf
 
+# Build directories
 build/
+
+# Debug and temporary files
+debug_*
+check_detected_values*
+test_wraparound*
+verify_fix*
+
+# Test executables
+tests
+comprehensive_tests
+demo
+demo_mutex
+demo_bulk
+demo_overwrite
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db

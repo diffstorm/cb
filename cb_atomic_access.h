@@ -24,8 +24,21 @@
 /* ======================== C11 Standard Atomics ======================== */
 #if __STDC_VERSION__ >= 201112L && !defined(__STDC_NO_ATOMICS__)
     #include <stdatomic.h>
-    #define CB_ATOMIC_LOAD(ptr) atomic_load_explicit((atomic_uintptr_t*)(ptr), memory_order_relaxed)
-    #define CB_ATOMIC_STORE(ptr, val) atomic_store_explicit((atomic_uintptr_t*)(ptr), (val), memory_order_relaxed)
+    /* Use appropriate atomic type based on CB_ATOMIC_INDEX_TYPE */
+    #if defined(CB_ATOMIC_INDEX_TYPE) && CB_ATOMIC_INDEX_TYPE == uint32_t
+        #define CB_ATOMIC_LOAD(ptr) atomic_load_explicit((_Atomic(uint32_t)*)(ptr), memory_order_relaxed)
+        #define CB_ATOMIC_STORE(ptr, val) atomic_store_explicit((_Atomic(uint32_t)*)(ptr), (uint32_t)(val), memory_order_relaxed)
+    #elif defined(CB_ATOMIC_INDEX_TYPE) && CB_ATOMIC_INDEX_TYPE == uint16_t
+        #define CB_ATOMIC_LOAD(ptr) atomic_load_explicit((_Atomic(uint16_t)*)(ptr), memory_order_relaxed)
+        #define CB_ATOMIC_STORE(ptr, val) atomic_store_explicit((_Atomic(uint16_t)*)(ptr), (uint16_t)(val), memory_order_relaxed)
+    #elif defined(CB_ATOMIC_INDEX_TYPE) && CB_ATOMIC_INDEX_TYPE == uint64_t
+        #define CB_ATOMIC_LOAD(ptr) atomic_load_explicit((_Atomic(uint64_t)*)(ptr), memory_order_relaxed)
+        #define CB_ATOMIC_STORE(ptr, val) atomic_store_explicit((_Atomic(uint64_t)*)(ptr), (uint64_t)(val), memory_order_relaxed)
+    #else
+        /* Fallback to uintptr_t for compatibility */
+        #define CB_ATOMIC_LOAD(ptr) atomic_load_explicit((_Atomic(uintptr_t)*)(ptr), memory_order_relaxed)
+        #define CB_ATOMIC_STORE(ptr, val) atomic_store_explicit((_Atomic(uintptr_t)*)(ptr), (uintptr_t)(val), memory_order_relaxed)
+    #endif
 
 /* ====================== GCC/Clang Intrinsics ========================= */
 #elif defined(__GNUC__) || defined(__clang__)

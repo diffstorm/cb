@@ -22,17 +22,16 @@ extern "C" {
 // Test fixture for circular buffer
 class CircularBufferTest : public ::testing::Test {
 protected:
-    static const size_t BUFFER_SIZE;
+    static const size_t BUFFER_SIZE = 5;
     cb buffer;
-    CbItem storage[5];
+    CbItem storage[BUFFER_SIZE];
 
     void SetUp() override {
         cb_init(&buffer, storage, BUFFER_SIZE);
     }
 };
 
-// Define static constant outside the class
-const size_t CircularBufferTest::BUFFER_SIZE = 5;
+const size_t CircularBufferTest::BUFFER_SIZE;
 
 // Test basic initialization
 TEST_F(CircularBufferTest, Initialization) {
@@ -62,12 +61,14 @@ TEST_F(CircularBufferTest, SingleInsertRemove) {
 TEST_F(CircularBufferTest, BufferFull) {
     // Fill buffer (size-1 items)
     for (CbItem i = 0; i < BUFFER_SIZE - 1; i++) {
-        EXPECT_TRUE(cb_insert(&buffer, i));
+        bool result = cb_insert(&buffer, i);
+        EXPECT_TRUE(result);
     }
     EXPECT_EQ(cb_freeSpace(&buffer), 0);
     
     // Should reject new items
-    EXPECT_FALSE(cb_insert(&buffer, 99));
+    bool critical_result = cb_insert(&buffer, 99);
+    EXPECT_FALSE(critical_result);
     
     // Remove one item and insert again
     CbItem temp;
@@ -98,12 +99,12 @@ TEST_F(CircularBufferTest, OverwriteMode) {
 // Test bulk operations
 TEST_F(CircularBufferTest, BulkOperations) {
     CbItem source[] = {10, 20, 30};
-    size_t inserted = cb_insert_bulk(&buffer, source, 3);
+    CbIndex inserted = cb_insert_bulk(&buffer, source, 3);
     EXPECT_EQ(inserted, 3);
     EXPECT_EQ(cb_dataSize(&buffer), 3);
 
     CbItem dest[3];
-    size_t removed = cb_remove_bulk(&buffer, dest, 3);
+    CbIndex removed = cb_remove_bulk(&buffer, dest, 3);
     EXPECT_EQ(removed, 3);
     EXPECT_EQ(dest[0], 10);
     EXPECT_EQ(dest[1], 20);
@@ -145,8 +146,8 @@ TEST_F(CircularBufferTest, WrapAround) {
         cb_insert(&buffer, i);
     }
 
-    // Verify data
-    EXPECT_EQ(cb_dataSize(&buffer), 3);
+    // Verify data - should be 4 items total (1 remaining + 3 new)
+    EXPECT_EQ(cb_dataSize(&buffer), 4);
     cb_remove(&buffer, &temp);
     EXPECT_EQ(temp, 2);  // Remaining original item
     
@@ -154,6 +155,8 @@ TEST_F(CircularBufferTest, WrapAround) {
     EXPECT_EQ(temp, 10);
     cb_remove(&buffer, &temp);
     EXPECT_EQ(temp, 11);
+    cb_remove(&buffer, &temp);
+    EXPECT_EQ(temp, 12);
 }
 
 // Test sanity checks

@@ -49,9 +49,6 @@ cmake ..
 
 # Build the library, demos, and tests
 make
-
-# Run tests
-./tests
 ```
 
 ### Demos
@@ -68,6 +65,16 @@ make
 
 # Run overwrite mode demo
 ./demo_overwrite
+```
+
+### Tests
+
+```bash
+# Run basic tests (9 tests)
+./tests
+
+# Run comprehensive tests (16 tests)
+./tests2
 ```
 
 ## API Reference
@@ -183,19 +190,33 @@ Automatically detects and configures for:
 The library includes comprehensive tests covering:
 
 - Basic functionality (100% coverage)
-- Edge cases (buffer size 1, 2, large buffers)
-- Multi-threaded stress tests
-- ISR simulation tests
+- Edge cases (buffer size 1, 2, zero-size buffers)
+- Multi-threaded producer-consumer patterns
 - Memory barrier validation
 - Cross-thread index integrity
 - Bulk operation edge cases
-- Overwrite mode stress tests
+- Overwrite mode functionality
 - Peek functionality validation
 - Sanity check failure modes
+- Null pointer handling
+
+### Test Structure
+
+The test suite is organized into two separate files:
+
+- **Basic Tests** (`test.cpp`): 9 tests covering core functionality
+- **Comprehensive Tests** (`tests2.cpp`): 16 tests across 7 test suites
 
 ```text
-[==========] 38 tests from 9 test suites ran. (25321 ms total)
-[  PASSED  ] 38 tests.
+=== BASIC TESTS ===
+[==========] Running 9 tests from 1 test suite.
+[  PASSED  ] 9 tests.
+
+=== COMPREHENSIVE TESTS ===
+[==========] Running 16 tests from 7 test suites.
+[  PASSED  ] 16 tests.
+
+Total: 25 tests passed
 ```
 
 ## Design Principles

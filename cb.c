@@ -57,7 +57,7 @@ void cb_init(cb *const cb_ptr, CbItem bufferStorage[], CbIndex bufferLength) {
 
 // Get free space in buffer
 CbIndex cb_freeSpace(cb *const cb_ptr) {
-    if (!cb_ptr) return 0;
+    if (!cb_ptr || cb_ptr->size == 0) return 0;
     
     CbIndex in = CB_ATOMIC_LOAD(&cb_ptr->in);
     CbIndex out = CB_ATOMIC_LOAD(&cb_ptr->out);
@@ -70,7 +70,7 @@ CbIndex cb_freeSpace(cb *const cb_ptr) {
 
 // Get occupied space in buffer
 CbIndex cb_dataSize(cb *const cb_ptr) {
-    if (!cb_ptr) return 0;
+    if (!cb_ptr || cb_ptr->size == 0) return 0;
     
     CbIndex in = CB_ATOMIC_LOAD(&cb_ptr->in);
     CbIndex out = CB_ATOMIC_LOAD(&cb_ptr->out);
@@ -103,7 +103,7 @@ bool cb_sanity_check(const cb *cb_ptr) {
 
 // Insert single item
 bool cb_insert(cb *const cb_ptr, CbItem const item) {
-    if (!cb_ptr) return false;
+    if (!cb_ptr || cb_ptr->size == 0) return false;
     
     CbIndex current_in = CB_ATOMIC_LOAD(&cb_ptr->in);
     CbIndex next_in = (current_in + 1) % cb_ptr->size;
@@ -129,7 +129,7 @@ bool cb_insert(cb *const cb_ptr, CbItem const item) {
 
 // Remove single item
 bool cb_remove(cb *const cb_ptr, CbItem *itemOut) {
-    if (!cb_ptr || !itemOut) return false;
+    if (!cb_ptr || !itemOut || cb_ptr->size == 0) return false;
     
     CbIndex current_out = CB_ATOMIC_LOAD(&cb_ptr->out);
     CbIndex current_in = CB_ATOMIC_LOAD(&cb_ptr->in);
@@ -145,8 +145,8 @@ bool cb_remove(cb *const cb_ptr, CbItem *itemOut) {
 }
 
 // Peek at item without removal
-bool cb_peek(const cb *cb_ptr, size_t offset, CbItem *itemOut) {
-    if (!cb_ptr || !itemOut) return false;
+bool cb_peek(const cb *cb_ptr, CbIndex offset, CbItem *itemOut) {
+    if (!cb_ptr || !itemOut || cb_ptr->size == 0) return false;
     
     CbIndex current_out = CB_ATOMIC_LOAD(&cb_ptr->out);
     CbIndex current_in = CB_ATOMIC_LOAD(&cb_ptr->in);
@@ -164,10 +164,10 @@ bool cb_peek(const cb *cb_ptr, size_t offset, CbItem *itemOut) {
 }
 
 // Insert multiple items
-size_t cb_insert_bulk(cb *cb_ptr, const CbItem *items, size_t count) {
-    if (!cb_ptr || !items || count == 0) return 0;
+CbIndex cb_insert_bulk(cb *cb_ptr, const CbItem *items, CbIndex count) {
+    if (!cb_ptr || !items || count == 0 || cb_ptr->size == 0) return 0;
     
-    size_t inserted = 0;
+    CbIndex inserted = 0;
     bool overwrite_enabled = CB_ATOMIC_LOAD(&cb_ptr->overwrite);
     
     while (inserted < count) {
@@ -179,8 +179,8 @@ size_t cb_insert_bulk(cb *cb_ptr, const CbItem *items, size_t count) {
         if (next_in == current_out) {
             if (overwrite_enabled) {
                 // Advance out pointer (overwrite oldest item)
-				CB_ATOMIC_STORE(&cb_ptr->out, (current_out + 1) % cb_ptr->size);
                 CB_MEMORY_BARRIER();
+                CB_ATOMIC_STORE(&cb_ptr->out, (current_out + 1) % cb_ptr->size);
             } else {
                 break;  // Stop if overwrite disabled
             }
@@ -192,17 +192,17 @@ size_t cb_insert_bulk(cb *cb_ptr, const CbItem *items, size_t count) {
         
         // Update in pointer
         CB_MEMORY_BARRIER();
-        cb_ptr->in = next_in;
+        CB_ATOMIC_STORE(&cb_ptr->in, next_in);
     }
     
     return inserted;
 }
 
 // Remove multiple items
-size_t cb_remove_bulk(cb *cb_ptr, CbItem *items, size_t count) {
-    if (!cb_ptr || !items || count == 0) return 0;
+CbIndex cb_remove_bulk(cb *cb_ptr, CbItem *items, CbIndex count) {
+    if (!cb_ptr || !items || count == 0 || cb_ptr->size == 0) return 0;
     
-    size_t removed = 0;
+    CbIndex removed = 0;
     
     while (removed < count) {
         CbIndex current_out = CB_ATOMIC_LOAD(&cb_ptr->out);

@@ -54,6 +54,10 @@
 #include "cb_memorybarrier_detect.h"
 #include "cb_atomic_access.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef CB_WORD_INDEX_TYPE     CbIndex;
 typedef CB_ATOMIC_INDEX_TYPE   CbAtomicIndex;
 typedef uint8_t                CbItem;
@@ -75,9 +79,9 @@ typedef struct
 {
     CbItem *buf;
     CbIndex size;
-    volatile CbAtomicIndex in;
-    volatile CbAtomicIndex out;
-    volatile CbAtomicIndex overwrite;  // Overwrite mode flag
+    CbAtomicIndex in;
+    CbAtomicIndex out;
+    CbAtomicIndex overwrite;  // Overwrite mode flag
 } cb;
 
 // Initialization
@@ -91,14 +95,18 @@ bool cb_sanity_check(const cb *cb_ptr);
 // Operations
 bool cb_insert(cb *const cb_ptr, CbItem const item);
 bool cb_remove(cb *const cb_ptr, CbItem *itemOut);
-bool cb_peek(const cb *cb_ptr, size_t offset, CbItem *itemOut);
+bool cb_peek(const cb *cb_ptr, CbIndex offset, CbItem *itemOut);
 
 // Bulk operations
-size_t cb_insert_bulk(cb *cb_ptr, const CbItem *items, size_t count);
-size_t cb_remove_bulk(cb *cb_ptr, CbItem *items, size_t count);
+CbIndex cb_insert_bulk(cb *cb_ptr, const CbItem *items, CbIndex count);
+CbIndex cb_remove_bulk(cb *cb_ptr, CbItem *items, CbIndex count);
 
 // Overwrite control
 void cb_set_overwrite(cb *cb_ptr, bool enable);
 bool cb_get_overwrite(const cb *cb_ptr);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* CB_H */
