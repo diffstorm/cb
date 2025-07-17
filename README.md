@@ -16,7 +16,6 @@ A lock-free circular buffer for embedded systems, real-time applications, and mu
 - [Getting Started](#getting-started)
 - [API Reference](#api-reference)
 - [Usage Examples](#usage-examples)
-- [Recent Enhancements](#recent-enhancements)
 - [Configuration Options](#configuration-options)
 - [Platform Support](#platform-support)
 - [Performance](#performance)
@@ -196,43 +195,6 @@ switch (result) {
         break;
 }
 ```
-
-## Recent Enhancements
-
-### Zero-Size Buffer Safety
-- Fixed division by zero crashes
-- Added comprehensive size validation
-- Ensures crash-free operation
-
-### Enhanced Error Handling
-- Added detailed error codes
-- Added parallel `*_ex()` functions
-- Maintained 100% backward compatibility
-- Added human-readable error strings
-- Added error context information with function and line tracking
-
-### Configurable Item Type
-- Added support for custom item types via `CB_ITEM_TYPE` define
-- Maintained backward compatibility with default `uint8_t` type
-
-### Timeout Operations
-- Added timeout variants for insert and remove operations
-- Non-blocking with configurable timeout duration
-- Both simple and extended API versions
-
-### Statistics Tracking
-- Added buffer usage statistics
-- Track peak usage, insert/remove counts, and overflow/underflow events
-- Reset and query functions for monitoring
-
-### C11 Atomics Support
-- Added automatic detection and use of C11 atomics when available
-- Maintained backward compatibility with older compilers
-- Improved memory model for modern platforms
-
-### Expanded Test Coverage
-- 44 comprehensive tests across four test suites
-- 100% test pass rate
 
 ## Thread Safety
 
