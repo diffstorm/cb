@@ -1,70 +1,73 @@
 cmake_minimum_required(VERSION 3.10)
-project(circular_buffer LANGUAGES C CXX)
+project(cb VERSION 1.2 LANGUAGES C CXX)
 
+# Set C/C++ standards
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Build type
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif()
+
+# Configuration options
+option(CB_ENABLE_STATISTICS "Enable statistics tracking in circular buffer" ON)
+
+# Add compile definitions based on options
+if(CB_ENABLE_STATISTICS)
+    add_compile_definitions(CB_ENABLE_STATISTICS=1)
+else()
+    add_compile_definitions(CB_ENABLE_STATISTICS=0)
+endif()
+
+# Compiler flags
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
+endif()
+
+# Main library
+add_library(cb
+    src/cb.c
+    src/cb.h
+    src/cb_wordsize_detect.h
+    src/cb_atomicindex_detect.h
+    src/cb_memorybarrier_detect.h
+    src/cb_atomic_access.h
+)
+
+target_include_directories(cb
+    PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+# Demo programs
+add_executable(demo demo/demo.c)
+target_link_libraries(demo PRIVATE cb)
+
+add_executable(demo_mutex demo/demo_mutex.c)
+target_link_libraries(demo_mutex PRIVATE cb)
+if(UNIX)
+    target_link_libraries(demo_mutex PRIVATE pthread)
+endif()
+
+add_executable(demo_bulk demo/demo_bulk.c)
+target_link_libraries(demo_bulk PRIVATE cb)
+
+add_executable(demo_overwrite demo/demo_overwrite.c)
+target_link_libraries(demo_overwrite PRIVATE cb)
+
+add_executable(demo_enhanced demo/demo_enhanced.c)
+target_link_libraries(demo_enhanced PRIVATE cb)
+
+add_executable(demo_stats demo/demo_stats.c)
+target_link_libraries(demo_stats PRIVATE cb)
+
+add_executable(demo_timeout demo/demo_timeout.c)
+target_link_libraries(demo_timeout PRIVATE cb)
+
+# Enable testing and add tests directory
 enable_testing()
-
-# === Fixed values for consistent testing across platforms ===
-# These override the platform detection headers to ensure consistent behavior
-set(CB_TEST_DEFINITIONS
-    -DCB_WORD_INDEX_TYPE=uint32_t          # Fixed 32-bit index for consistent testing
-    -DCB_ATOMIC_INDEX_TYPE=uint32_t        # Fixed 32-bit atomic index
-    -DCB_USE_MEMORY_BARRIERS=1             # Always enable memory barriers for testing
-)
-
-# === Library ===
-add_library(cb STATIC 
-    cb.c
-    cb_atomic_access.h
-    cb_atomicindex_detect.h
-    cb_memorybarrier_detect.h
-    cb_wordsize_detect.h
-    cb.h
-)
-target_include_directories(cb PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_compile_definitions(cb PRIVATE ${CB_TEST_DEFINITIONS})
-
-# === Original Demo (C) ===
-add_executable(demo demo.c)
-target_link_libraries(demo cb pthread)
-target_compile_definitions(demo PRIVATE ${CB_TEST_DEFINITIONS})
-
-# === Mutex Demo (C) ===
-add_executable(demo_mutex demo_mutex.c)
-target_link_libraries(demo_mutex cb pthread)
-target_compile_definitions(demo_mutex PRIVATE ${CB_TEST_DEFINITIONS})
-
-# === Bulk Demo (C) ===
-add_executable(demo_bulk demo_bulk.c)
-target_link_libraries(demo_bulk cb pthread)
-target_compile_definitions(demo_bulk PRIVATE ${CB_TEST_DEFINITIONS})
-
-# === Overwrite Demo (C) ===
-add_executable(demo_overwrite demo_overwrite.c)
-target_link_libraries(demo_overwrite cb pthread)
-target_compile_definitions(demo_overwrite PRIVATE ${CB_TEST_DEFINITIONS})
-
-# === Tests (C++) ===
-find_package(GTest REQUIRED)
-
-# Basic tests
-add_executable(tests test.cpp)
-target_link_libraries(tests cb GTest::gtest_main pthread)
-target_include_directories(tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_compile_definitions(tests PRIVATE ${CB_TEST_DEFINITIONS})
-
-# Comprehensive tests
-add_executable(tests2 tests2.cpp)
-target_link_libraries(tests2 cb GTest::gtest_main pthread)
-target_include_directories(tests2 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_compile_definitions(tests2 PRIVATE ${CB_TEST_DEFINITIONS})
-
-include(GoogleTest)
-gtest_discover_tests(tests)
-gtest_discover_tests(tests2)
-
-install(TARGETS cb 
-    ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION lib
-    RUNTIME DESTINATION bin
-)
-install(FILES cb.h DESTINATION include)
+add_subdirectory(tests)

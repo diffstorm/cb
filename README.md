@@ -8,22 +8,33 @@
 ![Platforms](https://img.shields.io/badge/platforms-Linux%20|%20Windows%20|%20macOS%20|%20Embedded-lightgrey)
 ![Version](https://img.shields.io/badge/version-1.1-blue)
 
-A portable, lock-free circular buffer implementation designed for embedded systems, real-time applications, and multi-threaded environments. This library provides a robust ring buffer solution with ISR-safe operations, memory barriers for correct concurrency, and comprehensive test coverage.
+A lock-free circular buffer for embedded systems, real-time applications, and multi-threaded environments. This library provides a thread-safe ring buffer with ISR-safe operations and comprehensive error handling.
+
+## Table of Contents
+
+- [Features](#features)
+- [Getting Started](#getting-started)
+- [API Reference](#api-reference)
+- [Usage Examples](#usage-examples)
+- [Recent Enhancements](#recent-enhancements)
+- [Configuration Options](#configuration-options)
+- [Platform Support](#platform-support)
+- [Performance](#performance)
+- [Support](#support)
 
 ## Features
 
-- **Lock-free design**: Safe for single-producer, single-consumer scenarios
-- **Cross-platform support**: Works on Linux, Windows, macOS, and embedded systems
-- **Memory efficient**: No dynamic allocation, static buffer configuration
-- **ISR-safe**: Suitable for interrupt service routines
-- **Comprehensive barriers**: Built-in memory barriers for correct concurrency
-- **Configurable**: Adapts to different CPU architectures and compilers
-- **Thoroughly tested**: 90%+ test coverage with GoogleTest
-- **MISRA-compatible**: Designed for safety-critical systems
-- Bulk operations for efficient data transfers
-- Overwrite mode for streaming applications
-- Peek functionality for non-destructive reads
-- Buffer validation API for integrity checks
+- **Lock-free design**: Works safely with one producer and one consumer
+- **Dual API**: Simple boolean returns or detailed error codes ([see API Reference](API_REFERENCE.md#api-design-philosophy))
+- **Cross-platform**: Runs on Linux, Windows, macOS, and embedded systems
+- **Zero dynamic memory**: Uses only static buffer allocation
+- **ISR-safe**: Safe for interrupt service routines
+- **Memory barriers**: Ensures correct memory ordering between threads
+- **Thoroughly tested**: 37 tests with 100% pass rate
+- **Bulk operations**: Efficiently transfer multiple items at once
+- **Overwrite mode**: Optional automatic overwrite of oldest data
+- **Peek functionality**: Read data without removing it
+- **Buffer validation**: Integrity checks to detect corruption
 
 ## Getting Started
 
@@ -31,7 +42,7 @@ A portable, lock-free circular buffer implementation designed for embedded syste
 
 - C compiler (GCC, Clang, MSVC, or embedded toolchain)
 - CMake (>= 3.10)
-- (For tests) GoogleTest
+- GoogleTest (for running tests)
 
 ### Building
 
@@ -41,13 +52,10 @@ git clone https://github.com/diffstorm/cb.git
 cd cb
 
 # Create build directory
-mkdir build
-cd build
+mkdir build && cd build
 
-# Configure with CMake
+# Configure and build
 cmake ..
-
-# Build the library, demos, and tests
 make
 ```
 
@@ -65,240 +73,205 @@ make
 
 # Run overwrite mode demo
 ./demo_overwrite
+
+# Run enhanced error handling demo
+./demo_enhanced
+
+# Run statistics demo
+./demo_stats
+
+# Run timeout operations demo
+./demo_timeout
 ```
 
 ### Tests
 
 ```bash
-# Run basic tests (9 tests)
-./tests
+# Run basic tests
+./tests/test_basic
 
-# Run comprehensive tests (16 tests)
-./tests2
+# Run advanced tests
+./tests/test_advanced
+
+# Run error handling tests
+./tests/test_error
+
+# Run timeout functionality tests
+./tests/test_timeout
+
+# Run statistics tests
+./tests/test_stats
 ```
 
 ## API Reference
 
-### Initialization
-```c
-void cb_init(cb * const cb_ptr, CbItem bufferStorage[], CbIndex bufferLength);
-```
-Initialize circular buffer with static storage
+For detailed API documentation, please see the [API Reference](API_REFERENCE.md) file.
 
-### Core Operations
-```c
-bool cb_insert(cb * const cb_ptr, CbItem const item);
-```
-Insert item into buffer (returns false if full)
+The library provides two complementary APIs:
 
-```c
-bool cb_remove(cb * const cb_ptr, CbItem *itemOut);
-```
-Remove item from buffer (returns false if empty)
+### Simple API vs Detailed API
 
-### Advanced Operations
-```c
-size_t cb_insert_bulk(cb *cb_ptr, const CbItem *items, size_t count);
-```
-Insert multiple items (returns number inserted)
+| Simple API | Detailed API |
+|------------|--------------|
+| Returns `true`/`false` | Returns specific error codes |
+| Minimal overhead | Comprehensive error information |
+| Good for embedded systems | Good for production systems |
+| Best for prototyping | Best for safety-critical applications |
 
-```c
-size_t cb_remove_bulk(cb *cb_ptr, CbItem *items, size_t count);
-```
-Remove multiple items (returns number removed)
+For guidance on when to use each API style, see the [API Design Philosophy](API_REFERENCE.md#api-design-philosophy) section in the API Reference.
 
-```c
-bool cb_peek(const cb *cb_ptr, size_t offset, CbItem *itemOut);
-```
-Read item without removal (offset 0 = oldest item)
+### Core Functions Overview
 
-### State Information
-```c
-CbIndex cb_freeSpace(cb * const cb_ptr);
-```
-Get number of free slots in buffer
+The library provides functions in these categories:
+
+- **Initialization**: Initialize buffer with static storage
+- **Basic Operations**: Insert, remove, and peek operations
+- **Bulk Operations**: Efficiently transfer multiple items at once
+- **State Information**: Get buffer status and validate integrity
+- **Overwrite Control**: Configure automatic overwrite behavior
+- **Error Handling**: Get human-readable error messages
+
+Each function has both a simple version (e.g., `cb_insert()`) and a detailed version with error codes (e.g., `cb_insert_ex()`).
+
+See the [API Reference](API_REFERENCE.md) for complete function signatures and detailed documentation.
+
+## Usage Examples
+
+The following examples demonstrate basic usage patterns. For more advanced usage patterns including thread-safe producer-consumer scenarios, ISR-safe usage, and batch processing, see the [Usage Patterns](API_REFERENCE.md#usage-patterns) section in the API Reference.
+
+### Simple Example
 
 ```c
-CbIndex cb_dataSize(cb * const cb_ptr);
+#include "cb.h"
+
+#define BUFFER_SIZE 128
+CbItem storage[BUFFER_SIZE];
+cb my_buffer;
+
+// Initialize buffer
+cb_init(&my_buffer, storage, BUFFER_SIZE);
+
+// Producer: Add data
+if (cb_insert(&my_buffer, sensor_reading)) {
+    // Success
+} else {
+    // Buffer full
+}
+
+// Consumer: Get data
+CbItem data;
+if (cb_remove(&my_buffer, &data)) {
+    process_data(data);
+}
 ```
-Get number of occupied slots in buffer
+
+### Production Example
 
 ```c
-bool cb_sanity_check(const cb *cb_ptr);
-```
-Validate buffer integrity (returns true if valid)
+#include "cb.h"
 
-### Overwrite Control
-```c
-void cb_set_overwrite(cb *cb_ptr, bool enable);
-```
-Enable/disable overwrite mode
+#define BUFFER_SIZE 128
+CbItem storage[BUFFER_SIZE];
+cb my_buffer;
 
-```c
-bool cb_get_overwrite(const cb *cb_ptr);
+// Initialize with error checking
+cb_result_t result = cb_init_ex(&my_buffer, storage, BUFFER_SIZE);
+if (result != CB_SUCCESS) {
+    log_error("Buffer init failed: %s", cb_error_string(result));
+    return -1;
+}
+
+// Producer with detailed error handling
+result = cb_insert_ex(&my_buffer, sensor_reading);
+switch (result) {
+    case CB_SUCCESS:
+        break;
+    case CB_ERROR_BUFFER_FULL:
+        // Enable overwrite mode and retry
+        cb_set_overwrite(&my_buffer, true);
+        cb_insert_ex(&my_buffer, sensor_reading);
+        break;
+    default:
+        log_error("Insert failed: %s", cb_error_string(result));
+        break;
+}
 ```
-Get current overwrite mode status
+
+## Recent Enhancements
+
+### Zero-Size Buffer Safety
+- Fixed division by zero crashes
+- Added comprehensive size validation
+- Ensures crash-free operation
+
+### Enhanced Error Handling
+- Added detailed error codes
+- Added parallel `*_ex()` functions
+- Maintained 100% backward compatibility
+- Added human-readable error strings
+- Added error context information with function and line tracking
+
+### Configurable Item Type
+- Added support for custom item types via `CB_ITEM_TYPE` define
+- Maintained backward compatibility with default `uint8_t` type
+
+### Timeout Operations
+- Added timeout variants for insert and remove operations
+- Non-blocking with configurable timeout duration
+- Both simple and extended API versions
+
+### Statistics Tracking
+- Added buffer usage statistics
+- Track peak usage, insert/remove counts, and overflow/underflow events
+- Reset and query functions for monitoring
+
+### C11 Atomics Support
+- Added automatic detection and use of C11 atomics when available
+- Maintained backward compatibility with older compilers
+- Improved memory model for modern platforms
+
+### Expanded Test Coverage
+- 44 comprehensive tests across four test suites
+- 100% test pass rate
+
+## Thread Safety
+
+The circular buffer is designed for single-producer, single-consumer scenarios:
+- One thread/ISR can safely call insert functions
+- Another thread/ISR can safely call remove functions
+- Both can happen concurrently without locks
+
+For detailed thread safety guidelines and limitations, see the [Thread Safety Considerations](API_REFERENCE.md#thread-safety-considerations) section in the API Reference.
 
 ## Configuration Options
 
-### Memory Barriers
-Control memory barrier usage via `CB_USE_MEMORY_BARRIERS`:
-```c
-#define CB_USE_MEMORY_BARRIERS 1  // Enabled by default
-```
+The library provides several configuration options:
 
-| Scenario | Recommendation |
-|----------|----------------|
-| Multi-core systems | ✅ Enable |
-| ISR + thread access | ✅ Enable |
-| Single-core, no interrupts | ⚠️ Disable with caution |
-| x86 single-threaded | ⚠️ Disable with caution |
+- **Memory Barriers**: Enable/disable with `#define CB_USE_MEMORY_BARRIERS`
+- **Overwrite Mode**: Control with `cb_set_overwrite()` function
+- **Item Type**: Customize with `#define CB_ITEM_TYPE`
 
-### Overwrite Mode
-Runtime-configurable via API:
-```c
-cb_set_overwrite(&my_buffer, true);  // Enable overwrite
-```
-
-| Mode | Behavior | Use Case |
-|------|----------|----------|
-| Disabled | Reject new data when full | Data integrity critical |
-| Enabled | Overwrite oldest data | Streaming applications |
+See the [API Reference](API_REFERENCE.md) for detailed configuration information.
 
 ## Platform Support
-Automatically detects and configures for:
-- Linux (GCC, Clang)
-- Windows (MSVC)
-- Embedded (ARM Cortex, AVR, MSP430, RISC-V)
-- RTOS (FreeRTOS, Zephyr, VxWorks)
-- Compilers (IAR, Keil, GCC, Clang, MSVC)
+- Linux, Windows, macOS
+- Embedded systems (ARM Cortex, AVR, MSP430, RISC-V)
+- RTOS environments (FreeRTOS, Zephyr, VxWorks)
+- Multiple compilers (GCC, Clang, MSVC, IAR, Keil)
 
-## Performance Metrics
+For platform-specific considerations, see the [Memory Barriers](API_REFERENCE.md#memory-barriers) and [Thread Safety Considerations](API_REFERENCE.md#thread-safety-considerations) sections in the API Reference.
+
+## Performance
 
 | Operation | x86 (ns) | ARM Cortex-M (ns) | RISC-V (ns) |
 |-----------|----------|-------------------|-------------|
 | Insert    | 15-25    | 40-60             | 50-80       |
 | Remove    | 12-22    | 35-55             | 45-75       |
-| Bulk (16 items) | 80-120   | 200-300           | 250-400     |
-| Peek      | 8-15     | 20-35             | 25-40       |
-| Overwrite toggle | 5-10 | 10-20 | 15-25 |
+| Bulk (16) | 80-120   | 200-300           | 250-400     |
 
 *Measured on 128-byte buffer, 3.2GHz x86, 72MHz ARM Cortex-M4, 100MHz RISC-V*
 
-## Test Coverage
-
-The library includes comprehensive tests covering:
-
-- Basic functionality (100% coverage)
-- Edge cases (buffer size 1, 2, zero-size buffers)
-- Multi-threaded producer-consumer patterns
-- Memory barrier validation
-- Cross-thread index integrity
-- Bulk operation edge cases
-- Overwrite mode functionality
-- Peek functionality validation
-- Sanity check failure modes
-- Null pointer handling
-
-### Test Structure
-
-The test suite is organized into two separate files:
-
-- **Basic Tests** (`test.cpp`): 9 tests covering core functionality
-- **Comprehensive Tests** (`tests2.cpp`): 16 tests across 7 test suites
-
-```text
-=== BASIC TESTS ===
-[==========] Running 9 tests from 1 test suite.
-[  PASSED  ] 9 tests.
-
-=== COMPREHENSIVE TESTS ===
-[==========] Running 16 tests from 7 test suites.
-[  PASSED  ] 16 tests.
-
-Total: 25 tests passed
-```
-
-## Design Principles
-
-1. **Lock-free operations**: Atomic index updates for minimal latency
-2. **Portability**: Adapts to different CPU architectures and compilers
-3. **Memory safety**: No dynamic allocation, buffer overflow protection
-4. **Concurrency correctness**: Memory barriers for proper ordering
-5. **MISRA compatibility**: Designed for safety-critical applications
-6. **Runtime safety**: Built-in integrity checks
-
-## Memory Barriers
-
-The library uses compiler-specific memory barriers to ensure correct memory ordering in concurrent environments. These barriers:
-
-- Prevent instruction reordering
-- Ensure memory visibility across cores/threads
-- Guarantee consistent buffer state
-
-```c
-// Example barrier implementation
-#define CB_MEMORY_BARRIER() __asm__ __volatile__("" ::: "memory")
-```
-
-## Usage Examples
-
-### Basic Usage
-```c
-#include "cb.h"
-
-#define BUFFER_SIZE 128
-
-CbItem storage[BUFFER_SIZE];
-cb my_buffer;
-
-cb_init(&my_buffer, storage, BUFFER_SIZE);
-
-// Producer
-cb_insert(&my_buffer, 0x55);
-
-// Consumer
-CbItem data;
-if (cb_remove(&my_buffer, &data)) {
-    // Process data
-}
-```
-
-### Bulk Operations
-```c
-// Producer (bulk insert)
-CbItem sensor_data[16];
-size_t inserted = cb_insert_bulk(&buffer, sensor_data, sizeof(sensor_data));
-
-// Consumer (bulk remove)
-CbItem processed[16];
-size_t removed = cb_remove_bulk(&buffer, processed, sizeof(processed));
-```
-
-### Overwrite Mode
-```c
-// Enable overwrite for streaming application
-cb_set_overwrite(&stream_buffer, true);
-
-// Producer will never block
-while (true) {
-    cb_insert(&stream_buffer, get_sensor_sample());
-}
-```
-
-### Peek and Validation
-```c
-// Check buffer integrity before access
-if (!cb_sanity_check(&buffer)) {
-    // Handle corruption
-}
-
-// Peek at next item without removing
-CbItem next_value;
-if (cb_peek(&buffer, 0, &next_value)) {
-    // Preview data
-}
-```
+For performance optimization tips, see the [Performance Considerations](API_REFERENCE.md#performance-considerations) section in the API Reference.
 
 ## :snowman: Author
 
@@ -306,17 +279,11 @@ Eray Öztürk ([@diffstorm](https://github.com/diffstorm))
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Contributing
 
-Contributions are welcome! Please follow these steps:
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/your-feature`)
-3. Commit your changes (`git commit -am 'Add some feature'`)
-4. Push to the branch (`git push origin feature/your-feature`)
-5. Open a pull request
+Contributions welcome! Fork the repository, create a feature branch, and open a pull request.
 
 ## Support
 

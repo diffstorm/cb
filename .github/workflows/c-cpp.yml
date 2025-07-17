@@ -1,0 +1,201 @@
+name: CI - Circular Buffer Library
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  linux-gcc:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        build_type: [Debug, Release]
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc g++ cmake libgtest-dev build-essential
+
+    - name: Configure CMake
+      run: cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DBUILD_TESTING=ON
+
+    - name: Build
+      run: cmake --build build --config ${{ matrix.build_type }} --parallel 4
+
+    - name: Run tests
+      working-directory: ./build
+      run: ctest --output-on-failure
+
+    - name: Run demos
+      working-directory: ./build
+      run: |
+        ./demo
+        ./demo_mutex
+        ./demo_bulk
+        ./demo_overwrite
+        ./demo_enhanced
+        ./demo_stats
+        ./demo_timeout
+
+  linux-clang:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        build_type: [Debug, Release]
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang clang-tidy cmake libgtest-dev build-essential
+
+    - name: Configure CMake
+      run: |
+        cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+              -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+              -DBUILD_TESTING=ON
+
+    - name: Build
+      run: cmake --build build --config ${{ matrix.build_type }} --parallel 4
+
+    - name: Run tests
+      working-directory: ./build
+      run: ctest --output-on-failure
+
+    - name: Run demos
+      working-directory: ./build
+      run: |
+        ./demo
+        ./demo_mutex
+        ./demo_bulk
+        ./demo_overwrite
+        ./demo_enhanced
+        ./demo_stats
+        ./demo_timeout
+
+  windows-msvc:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        build_type: [Debug, Release]
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Configure CMake
+      run: |
+        cmake -B build -A x64 -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+              -DBUILD_TESTING=ON
+
+    - name: Build
+      run: cmake --build build --config ${{ matrix.build_type }} --parallel 4
+
+    - name: Run tests
+      working-directory: ./build
+      run: ctest -C ${{ matrix.build_type }} --output-on-failure
+
+    - name: Run demos
+      working-directory: ./build/${{ matrix.build_type }}
+      run: |
+        ./demo.exe
+        ./demo_mutex.exe
+        ./demo_bulk.exe
+        ./demo_overwrite.exe
+        ./demo_enhanced.exe
+        ./demo_stats.exe
+        ./demo_timeout.exe
+
+  macos-clang:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        build_type: [Debug, Release]
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Install dependencies
+      run: brew install cmake
+
+    - name: Configure CMake
+      run: |
+        cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+              -DBUILD_TESTING=ON
+
+    - name: Build
+      run: cmake --build build --config ${{ matrix.build_type }} --parallel 4
+
+    - name: Run tests
+      working-directory: ./build
+      run: ctest --output-on-failure
+
+    - name: Run demos
+      working-directory: ./build
+      run: |
+        ./demo
+        ./demo_mutex
+        ./demo_bulk
+        ./demo_overwrite
+        ./demo_enhanced
+        ./demo_stats
+        ./demo_timeout
+
+  embedded-arm:
+    runs-on: ubuntu-latest
+    name: ARM Cross-compile
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Install ARM toolchain
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc-arm-none-eabi g++-arm-none-eabi
+
+    - name: Configure CMake
+      run: |
+        cmake -B build-arm -DCMAKE_TOOLCHAIN_FILE=toolchains/arm-gcc.cmake \
+              -DBUILD_TESTING=OFF
+
+    - name: Build ARM version
+      run: cmake --build build-arm --parallel 4
+
+  code-analysis:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang-tidy cppcheck
+
+    - name: Run cppcheck
+      run: |
+        cppcheck --enable=all --suppress=missingIncludeSystem \
+                --suppress=unusedFunction -I src/ tests/ demo/ --error-exitcode=1
+
+    - name: Run clang-tidy
+      run: |
+        cmake -B build-tidy -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+        run-clang-tidy -p build-tidy
+
+  format-check:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Check formatting
+      run: |
+        sudo apt-get install -y clang-format
+        find src tests demo -name '*.c' -o -name '*.h' -o -name '*.cpp' | \
+        xargs clang-format --dry-run --Werror
