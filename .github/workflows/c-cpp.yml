@@ -86,6 +86,14 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
+    - name: Set up MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Setup GoogleTest
+      uses: Bacondish2023/setup-googletest@v1
+      with:
+        tag: v1.14.0
+
     - name: Configure CMake
       run: cmake -B build -A x64 -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DBUILD_TESTING=ON
 
@@ -117,7 +125,7 @@ jobs:
       uses: actions/checkout@v3
 
     - name: Install dependencies
-      run: brew install cmake gtest
+      run: brew install cmake googletest
 
     - name: Configure CMake
       run: cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DBUILD_TESTING=ON
