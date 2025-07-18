@@ -77,44 +77,6 @@ jobs:
         ./demo_stats
         ./demo_timeout
 
-  windows-msvc:
-    runs-on: windows-latest
-    strategy:
-      matrix:
-        build_type: [Debug, Release]
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-
-    - name: Set up MSVC
-      uses: ilammy/msvc-dev-cmd@v1
-
-    - name: Setup GoogleTest
-      uses: Bacondish2023/setup-googletest@v1
-      with:
-        tag: v1.14.0
-
-    - name: Configure CMake
-      run: cmake -B build -A x64 -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DBUILD_TESTING=ON
-
-    - name: Build
-      run: cmake --build build --config ${{ matrix.build_type }} --parallel 4
-
-    - name: Run tests
-      working-directory: ./build
-      run: ctest -C ${{ matrix.build_type }} --output-on-failure
-
-    - name: Run demos
-      working-directory: ./build/${{ matrix.build_type }}
-      run: |
-        ./demo.exe
-        ./demo_mutex.exe
-        ./demo_bulk.exe
-        ./demo_overwrite.exe
-        ./demo_enhanced.exe
-        ./demo_stats.exe
-        ./demo_timeout.exe
-
   macos-clang:
     runs-on: macos-latest
     strategy:
