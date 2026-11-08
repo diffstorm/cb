@@ -7,18 +7,19 @@
 3. [Data Types](#data-types)
 4. [Error Handling](#error-handling)
 5. [Initialization Functions](#initialization-functions)
-6. [Core Operations](#core-operations)
-7. [Bulk Operations](#bulk-operations)
-8. [Timeout Operations](#timeout-operations)
-9. [State Information Functions](#state-information-functions)
-10. [Overwrite Control](#overwrite-control)
-11. [Error String Utilities](#error-string-utilities)
-12. [Statistics Functions](#statistics-functions)
-13. [Configuration Options](#configuration-options)
-14. [Memory Barriers](#memory-barriers)
-15. [Thread Safety Considerations](#thread-safety-considerations)
-16. [Performance Considerations](#performance-considerations)
-17. [Usage Patterns](#usage-patterns)
+6. [Buffer Management](#buffer-management)
+7. [Core Operations](#core-operations)
+8. [Bulk Operations](#bulk-operations)
+9. [Timeout Operations](#timeout-operations)
+10. [State Information Functions](#state-information-functions)
+11. [Overwrite Control](#overwrite-control)
+12. [Error String Utilities](#error-string-utilities)
+13. [Statistics Functions](#statistics-functions)
+14. [Configuration Options](#configuration-options)
+15. [Memory Barriers](#memory-barriers)
+16. [Thread Safety Considerations](#thread-safety-considerations)
+17. [Performance Considerations](#performance-considerations)
+18. [Usage Patterns](#usage-patterns)
 
 ## Introduction
 
@@ -196,6 +197,40 @@ Initializes a circular buffer with the provided storage array, with detailed err
 
 **Notes:**
 - Even with invalid parameters, the function will initialize all fields of the buffer structure
+
+## Buffer Management
+
+### Reset Function
+
+```c
+void cb_reset(cb *const cb_ptr);
+```
+
+Resets the buffer to its initial empty state without changing the buffer size or reinitializing the structure.
+
+**Parameters:**
+- `cb_ptr`: Pointer to the circular buffer
+
+**Returns:** None
+
+**Notes:**
+- This function clears the `in` and `out` indices to 0
+- Error information is also cleared
+- Does not modify the buffer contents (data remains but is considered invalid)
+- Safe to call from any context (thread, ISR, etc.)
+
+**Use Cases:**
+- Circular logs where old data should be discarded
+- Reusing buffer without reallocating
+- Recovery after error conditions
+
+**Example:**
+```c
+// Reset circular log when it becomes too large
+if (cb_dataSize(&log_buffer) > MAX_LOG_SIZE) {
+    cb_reset(&log_buffer);
+}
+```
 
 ## Core Operations
 

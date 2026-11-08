@@ -2,19 +2,25 @@
 #define CB_WORDSIZE_DETECT_H
 
 /**
- * @file cb_wordsize_detect.h
- * @brief CPU word size detection for circular buffer implementations
- * 
- * @note This header determines the native word size of the processor to optimize
- *       buffer index calculations. The detected type is used for efficient modulo
- *       operations in circular buffers.
- * 
- * Detection priority:
- * 1. Standard C/C++ methods (UINTPTR_MAX)
- * 2. Architecture-specific detection
- * 3. Compiler-specific detection
- * 4. RTOS/platform-specific detection
- * 5. Microcontroller-specific fallbacks
+   @file cb_wordsize_detect.h
+   @brief CPU word size detection for circular buffer implementations
+  
+   @note This header determines the native word size of the processor to optimize
+         buffer index calculations. The detected type is used for efficient modulo
+         operations in circular buffers.
+  
+   Detection priority:
+   1. Standard C/C++ methods (UINTPTR_MAX)
+   2. Architecture-specific detection
+   3. Compiler-specific detection
+   4. RTOS/platform-specific detection
+   5. Microcontroller-specific fallbacks
+
+   @date 2025-07-16
+   @version 1.2
+   @author Eray Ozturk | erayozturk1@gmail.com
+   @url github.com/diffstorm
+   @license MIT License
  */
 
 #include <stdint.h>

@@ -69,6 +69,12 @@
     | 6. TSAN clean report       | [ ]  | [ ]  |
     | 7. 72h burn-in             | [ ]  | [ ]  |
     Must pass ALL tests to consider disabling barriers
+
+    @date 2025-07-16
+    @version 1.2
+    @author Eray Ozturk | erayozturk1@gmail.com
+    @url github.com/diffstorm
+    @license MIT License
 */
 
 #if CB_USE_MEMORY_BARRIERS

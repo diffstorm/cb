@@ -1,4 +1,4 @@
-/*
+/**
     @file        cb.h / cb.c
     @brief       Lock-free circular buffer (ring buffer) library
     @details
@@ -82,6 +82,10 @@ typedef CB_ITEM_TYPE           CbItem;
 /* Timeout value for non-blocking operations */
 #define CB_NO_WAIT 0
 
+/* Utility macros for common operations */
+#define cb_is_full(cb_ptr)   ((cb_freeSpace(cb_ptr) == 0))
+#define cb_is_empty(cb_ptr)  ((cb_dataSize(cb_ptr) == 0))
+
 /* Error codes for enhanced error handling */
 typedef enum {
     CB_SUCCESS = 0,                 // Operation completed successfully
@@ -140,6 +144,13 @@ typedef struct
 /* Initialization */
 void cb_init(cb *const cb_ptr, CbItem bufferStorage[], CbIndex bufferLength);
 cb_result_t cb_init_ex(cb *const cb_ptr, CbItem bufferStorage[], CbIndex bufferLength);
+
+/* Buffer management */
+void cb_reset(cb *const cb_ptr);
+
+/* Utility macros for common operations */
+#define cb_is_full(cb_ptr)   ((cb_freeSpace(cb_ptr) == 0))
+#define cb_is_empty(cb_ptr)  ((cb_dataSize(cb_ptr) == 0))
 
 /* State */
 CbIndex cb_freeSpace(cb *const cb_ptr);

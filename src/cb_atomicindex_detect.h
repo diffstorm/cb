@@ -2,21 +2,27 @@
 #define CB_ATOMICINDEX_DETECT_H
 
 /**
- * @file cb_atomicindex_detect.h
- * @brief Platform-specific atomic type selection for circular buffer indices
- * 
- * @note This header selects the optimal atomic type for circular buffer indices
- *       that meets these requirements:
- *       1. Naturally atomic on the target architecture
- *       2. Same size or smaller than CB_WORD_INDEX_TYPE
- *       3. Optimal for lock-free operation
- * 
- * Detection priority:
- * 1. Standard C11 atomics
- * 2. RTOS-specific atomic types
- * 3. Architecture-specific atomic guarantees
- * 4. Compiler-specific atomic implementations
- * 5. Size-based fallbacks
+   @file cb_atomicindex_detect.h
+   @brief Platform-specific atomic type selection for circular buffer indices
+  
+   @note This header selects the optimal atomic type for circular buffer indices
+         that meets these requirements:
+         1. Naturally atomic on the target architecture
+         2. Same size or smaller than CB_WORD_INDEX_TYPE
+         3. Optimal for lock-free operation
+  
+   Detection priority:
+   1. Standard C11 atomics
+   2. RTOS-specific atomic types
+   3. Architecture-specific atomic guarantees
+   4. Compiler-specific atomic implementations
+   5. Size-based fallbacks
+
+   @date 2025-07-16
+   @version 1.2
+   @author Eray Ozturk | erayozturk1@gmail.com
+   @url github.com/diffstorm
+   @license MIT License
  */
 
 #ifndef CB_ATOMIC_INDEX_TYPE

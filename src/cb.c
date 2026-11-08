@@ -1,4 +1,4 @@
-/*
+/**
     @file        cb.h / cb.c
     @brief       Lock-free circular buffer (ring buffer) library
     @details
@@ -219,6 +219,22 @@ cb_result_t cb_init_ex(cb *const cb_ptr, CbItem bufferStorage[], CbIndex bufferL
     #endif
     
     return CB_SUCCESS;
+}
+
+void cb_reset(cb *const cb_ptr) {
+    if (!cb_ptr) {
+        return;
+    }
+    
+    #if CB_HAS_C11_ATOMICS
+        atomic_store_explicit(&cb_ptr->in, 0, memory_order_relaxed);
+        atomic_store_explicit(&cb_ptr->out, 0, memory_order_relaxed);
+    #else
+        CB_ATOMIC_STORE(&cb_ptr->in, 0);
+        CB_ATOMIC_STORE(&cb_ptr->out, 0);
+    #endif
+    
+    cb_clear_error(cb_ptr);
 }
 
 CbIndex cb_freeSpace(cb *const cb_ptr) {
