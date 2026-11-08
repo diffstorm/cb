@@ -6,7 +6,7 @@
 [![Code Coverage](https://codecov.io/gh/diffstorm/cb/branch/main/graph/badge.svg)](https://codecov.io/gh/diffstorm/cb)
 ![GitHub Stars](https://img.shields.io/github/stars/diffstorm/cb?style=social)
 ![Platforms](https://img.shields.io/badge/platforms-Linux%20|%20Windows%20|%20macOS%20|%20Embedded-lightgrey)
-![Version](https://img.shields.io/badge/version-1.1-blue)
+![Version](https://img.shields.io/badge/version-1.3-blue)
 
 A lock-free circular buffer for embedded systems, real-time applications, and multi-threaded environments. This library provides a thread-safe ring buffer with ISR-safe operations and comprehensive error handling.
 
@@ -34,6 +34,9 @@ A lock-free circular buffer for embedded systems, real-time applications, and mu
 - **Overwrite mode**: Optional automatic overwrite of oldest data
 - **Peek functionality**: Read data without removing it
 - **Buffer validation**: Integrity checks to detect corruption
+- **Memory pool support**: Share memory across multiple buffers ([see src/cb_pool.h](src/cb_pool.h))
+- **C++ template wrapper**: Type-safe C++ interface ([see src/cb.hpp](src/cb.hpp))
+- **Static analysis support**: Compiler hints for static analyzers ([see src/cb.h](src/cb.h))
 
 ## Getting Started
 
