@@ -68,6 +68,9 @@ target_link_libraries(demo_stats PRIVATE cb)
 add_executable(demo_timeout demo/demo_timeout.c)
 target_link_libraries(demo_timeout PRIVATE cb)
 
-# Enable testing and add tests directory
-enable_testing()
-add_subdirectory(tests)
+# Enable testing and add tests directory (optional)
+option(CB_BUILD_TESTS "Build tests (requires GTest)" ON)
+if(CB_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()

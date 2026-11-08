@@ -69,21 +69,21 @@
 
 /* Atomic operations wrappers for C11 atomics */
 #if CB_HAS_C11_ATOMICS
-    #define CB_ATOMIC_LOAD_IN(cb_ptr)  atomic_load(&(cb_ptr)->in)
-    #define CB_ATOMIC_LOAD_OUT(cb_ptr) atomic_load(&(cb_ptr)->out)
-    #define CB_ATOMIC_LOAD_OW(cb_ptr)  atomic_load(&(cb_ptr)->overwrite)
+    #define CB_ATOMIC_LOAD_IN(cb_ptr)  atomic_load_explicit(&(cb_ptr)->in, memory_order_relaxed)
+    #define CB_ATOMIC_LOAD_OUT(cb_ptr) atomic_load_explicit(&(cb_ptr)->out, memory_order_acquire)
+    #define CB_ATOMIC_LOAD_OW(cb_ptr)  atomic_load_explicit(&(cb_ptr)->overwrite, memory_order_relaxed)
     
-    #define CB_ATOMIC_STORE_IN(cb_ptr, val)  atomic_store(&(cb_ptr)->in, (val))
-    #define CB_ATOMIC_STORE_OUT(cb_ptr, val) atomic_store(&(cb_ptr)->out, (val))
-    #define CB_ATOMIC_STORE_OW(cb_ptr, val)  atomic_store(&(cb_ptr)->overwrite, (val))
+    #define CB_ATOMIC_STORE_IN(cb_ptr, val)  atomic_store_explicit(&(cb_ptr)->in, (val), memory_order_release)
+    #define CB_ATOMIC_STORE_OUT(cb_ptr, val) atomic_store_explicit(&(cb_ptr)->out, (val), memory_order_release)
+    #define CB_ATOMIC_STORE_OW(cb_ptr, val)  atomic_store_explicit(&(cb_ptr)->overwrite, (val), memory_order_release)
 #else
     #define CB_ATOMIC_LOAD_IN(cb_ptr)  CB_ATOMIC_LOAD(&(cb_ptr)->in)
     #define CB_ATOMIC_LOAD_OUT(cb_ptr) CB_ATOMIC_LOAD(&(cb_ptr)->out)
-    #define CB_ATOMIC_LOAD_OW(cb_ptr)  CB_ATOMIC_LOAD(&(cb_ptr)->overwrite)
+    #define CB_ATOMIC_LOAD_OW(cb_ptr)  (*(volatile uint8_t*)&(cb_ptr)->overwrite)
     
     #define CB_ATOMIC_STORE_IN(cb_ptr, val)  CB_ATOMIC_STORE(&(cb_ptr)->in, (val))
     #define CB_ATOMIC_STORE_OUT(cb_ptr, val) CB_ATOMIC_STORE(&(cb_ptr)->out, (val))
-    #define CB_ATOMIC_STORE_OW(cb_ptr, val)  CB_ATOMIC_STORE(&(cb_ptr)->overwrite, (val))
+    #define CB_ATOMIC_STORE_OW(cb_ptr, val)  ((void)(*(volatile uint8_t*)&(cb_ptr)->overwrite = (uint8_t)(val)))
 #endif
 
 /* Statistics storage - one per buffer */
@@ -192,13 +192,13 @@ cb_result_t cb_init_ex(cb *const cb_ptr, CbItem bufferStorage[], CbIndex bufferL
         cb_ptr->size = 0;
         
         #if CB_HAS_C11_ATOMICS
-            atomic_store(&cb_ptr->in, 0);
-            atomic_store(&cb_ptr->out, 0);
-            atomic_store(&cb_ptr->overwrite, false);
+            atomic_store_explicit(&cb_ptr->in, 0, memory_order_relaxed);
+            atomic_store_explicit(&cb_ptr->out, 0, memory_order_relaxed);
+            atomic_store_explicit(&cb_ptr->overwrite, false, memory_order_relaxed);
         #else
             CB_ATOMIC_STORE(&cb_ptr->in, 0);
             CB_ATOMIC_STORE(&cb_ptr->out, 0);
-            CB_ATOMIC_STORE(&cb_ptr->overwrite, 0);
+            cb_ptr->overwrite = 0;  /* Direct 8-bit store */
         #endif
         
         CB_SET_ERROR(cb_ptr, CB_ERROR_INVALID_SIZE, __func__, "bufferLength", __LINE__);
@@ -209,13 +209,13 @@ cb_result_t cb_init_ex(cb *const cb_ptr, CbItem bufferStorage[], CbIndex bufferL
     cb_ptr->size = bufferLength;
     
     #if CB_HAS_C11_ATOMICS
-        atomic_store(&cb_ptr->in, 0);
-        atomic_store(&cb_ptr->out, 0);
-        atomic_store(&cb_ptr->overwrite, false);
+        atomic_store_explicit(&cb_ptr->in, 0, memory_order_relaxed);
+        atomic_store_explicit(&cb_ptr->out, 0, memory_order_relaxed);
+        atomic_store_explicit(&cb_ptr->overwrite, false, memory_order_relaxed);
     #else
         CB_ATOMIC_STORE(&cb_ptr->in, 0);
         CB_ATOMIC_STORE(&cb_ptr->out, 0);
-        CB_ATOMIC_STORE(&cb_ptr->overwrite, 0);
+        cb_ptr->overwrite = 0;  /* Direct 8-bit store */
     #endif
     
     return CB_SUCCESS;
@@ -370,7 +370,7 @@ cb_result_t cb_insert_ex(cb *const cb_ptr, CbItem const item) {
     CbIndex current_out = CB_ATOMIC_LOAD(&cb_ptr->out);
     
     if (next_in == current_out) {
-        if (CB_ATOMIC_LOAD(&cb_ptr->overwrite)) {
+        if (CB_ATOMIC_LOAD_OW(cb_ptr)) {
             // Advance out pointer (overwrite oldest item)
             CB_ATOMIC_STORE(&cb_ptr->out, (current_out + 1) % cb_ptr->size);
             CB_MEMORY_BARRIER();
@@ -412,8 +412,8 @@ cb_result_t cb_remove_ex(cb *const cb_ptr, CbItem *itemOut) {
         return CB_ERROR_INVALID_SIZE;
     }
     
-    CbIndex current_out = CB_ATOMIC_LOAD(&cb_ptr->out);
-    CbIndex current_in = CB_ATOMIC_LOAD(&cb_ptr->in);
+    CbIndex current_out = CB_ATOMIC_LOAD_OUT(cb_ptr);
+    CbIndex current_in = CB_ATOMIC_LOAD_IN(cb_ptr);
     
     if (current_out == current_in) {
         #if defined(CB_ENABLE_STATISTICS) && CB_ENABLE_STATISTICS
@@ -422,9 +422,10 @@ cb_result_t cb_remove_ex(cb *const cb_ptr, CbItem *itemOut) {
         return CB_ERROR_BUFFER_EMPTY;
     }
     
-    *itemOut = cb_ptr->buf[current_out];
     CB_MEMORY_BARRIER();
-    CB_ATOMIC_STORE(&cb_ptr->out, (current_out + 1) % cb_ptr->size);
+    *itemOut = cb_ptr->buf[current_out];
+    CB_ATOMIC_STORE_OUT(cb_ptr, (current_out + 1) % cb_ptr->size);
+    CB_MEMORY_BARRIER();
     
     #if defined(CB_ENABLE_STATISTICS) && CB_ENABLE_STATISTICS
     CbIndex data_size = cb_dataSize(cb_ptr);
@@ -451,8 +452,11 @@ cb_result_t cb_peek_ex(const cb *cb_ptr, CbIndex offset, CbItem *itemOut) {
         return CB_ERROR_INVALID_SIZE;
     }
     
-    CbIndex current_out = CB_ATOMIC_LOAD(&cb_ptr->out);
-    CbIndex current_in = CB_ATOMIC_LOAD(&cb_ptr->in);
+    CbIndex current_out = CB_ATOMIC_LOAD_OUT(cb_ptr);
+    CbIndex current_in = CB_ATOMIC_LOAD_IN(cb_ptr);
+    
+    CB_MEMORY_BARRIER();
+    
     CbIndex available = (current_in >= current_out) ? 
         (current_in - current_out) : 
         (cb_ptr->size - current_out + current_in);
@@ -496,7 +500,7 @@ cb_result_t cb_insert_bulk_ex(cb *cb_ptr, const CbItem *items, CbIndex count, Cb
     }
     
     *inserted = 0;
-    bool overwrite_enabled = CB_ATOMIC_LOAD(&cb_ptr->overwrite);
+    bool overwrite_enabled = CB_ATOMIC_LOAD_OW(cb_ptr);
     cb_result_t last_error = CB_SUCCESS;
     
     while (*inserted < count) {
@@ -574,7 +578,7 @@ cb_result_t cb_set_overwrite_ex(cb *cb_ptr, bool enable) {
         return CB_ERROR_NULL_POINTER;
     }
     
-    CB_ATOMIC_STORE(&cb_ptr->overwrite, enable ? 1 : 0);
+    CB_ATOMIC_STORE_OW(cb_ptr, enable ? 1 : 0);
     CB_MEMORY_BARRIER();
     return CB_SUCCESS;
 }
@@ -594,7 +598,7 @@ cb_result_t cb_get_overwrite_ex(const cb *cb_ptr, bool *enabled) {
         return CB_ERROR_NULL_POINTER;
     }
     
-    *enabled = (CB_ATOMIC_LOAD(&cb_ptr->overwrite) != 0);
+    *enabled = (CB_ATOMIC_LOAD_OW(cb_ptr) != 0);
     return CB_SUCCESS;
 }
 

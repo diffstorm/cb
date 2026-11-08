@@ -130,7 +130,7 @@ typedef struct
 #else
     CbAtomicIndex in;
     CbAtomicIndex out;
-    CbAtomicIndex overwrite;  // Overwrite mode flag
+    volatile uint8_t overwrite;  // Overwrite mode flag (1-byte for correct atomic access)
 #endif
 
     /* Last error information */
